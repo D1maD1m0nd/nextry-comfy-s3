@@ -70,12 +70,12 @@ class S3:
             err = f"Failed to create folder in S3: {e}"
             logger.error(err)
     
-    def download_file(self, s3_path, local_path):
+    def download_file(self, s3_path, local_path, bucket_name = None):
         local_dir = os.path.dirname(local_path)
         if not os.path.exists(local_dir):
             os.makedirs(local_dir)
         try:
-            bucket = self.s3_client.Bucket(self.bucket_name)
+            bucket = self.s3_client.Bucket(bucket_name if bucket_name is not None else self.bucket_name)
             bucket.download_file(s3_path, local_path)
             return local_path
         except NoCredentialsError:
