@@ -6,10 +6,10 @@ license = { file = "LICENSE" }
 dependencies = ["python-dotenv==1.0.1", "boto3==1.34.32"]
 
 [project.urls]
-Repository = "https://github.com/TemryL/ComfyS3"
+Repository = "https://github.com/D1maD1m0nd/nextry-comfy-s3.git"
 #  Used by Comfy Registry https://comfyregistry.org
 
 [tool.comfy]
-PublisherId = "temryl"
-DisplayName = "ComfyS3"
+PublisherId = "D1maD1m0nd"
+DisplayName = "nextry-comfy-s3"
 Icon = ""
