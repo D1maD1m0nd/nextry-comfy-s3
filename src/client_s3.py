@@ -75,7 +75,9 @@ class S3:
         if not os.path.exists(local_dir):
             os.makedirs(local_dir)
         try:
+
             bucket = self.s3_client.Bucket(bucket_name if bucket_name is not None else self.bucket_name)
+            logger.info(f"Downloading file from S3: {s3_path} to {local_path} in bucket {bucket_name}")
             bucket.download_file(s3_path, local_path)
             return local_path
         except NoCredentialsError:

@@ -91,7 +91,7 @@ class SaveImageS3:
                     logger.info(f"Removed temp file {image_preview_temp_path}")
 
         logger.info(f"Saved {len(results)} images to {full_output_folder}")
-
+        logger.info({ "ui": { "images": results },  "result": s3_image_paths })
         return { "ui": { "images": results },  "result": s3_image_paths }
 
     def save_temp_image(self, img: Image, suffix: str = ".png") -> str:
