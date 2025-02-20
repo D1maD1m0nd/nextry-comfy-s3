@@ -9,7 +9,7 @@ from ..logger import logger
 S3_INSTANCE = get_s3_instance()
 
 
-class LoadImageS3:
+class NextryLoadImageS3:
     @classmethod
     def INPUT_TYPES(s):
 

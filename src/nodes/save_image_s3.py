@@ -11,7 +11,7 @@ from ..logger import logger
 S3_INSTANCE = get_s3_instance()
 
 
-class SaveImageS3:
+class NextrySaveImageS3:
     def __init__(self):
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
         self.temp_dir = os.path.join(base_dir, "temp/")
