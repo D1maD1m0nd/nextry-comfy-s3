@@ -15,14 +15,15 @@ class LoadImageS3:
 
         return {"required":
                     {"image": ("STRING", {"default": "generation-type/preview/1.png"}),
-                     "s3_bucket_name": ("STRING", {"default": os.getenv("S3_BUCKET_NAME")})},
+                     "s3_bucket_name": ("STRING", {"default": os.getenv("S3_BUCKET_NAME")}),
+                     "tag": ("STRING", {"default": "generation-type"})},
                 }
 
     CATEGORY = "ComfyS3"
     RETURN_TYPES = ("IMAGE", "MASK")
     FUNCTION = "load_image"
 
-    def load_image(self, image, s3_bucket_name):
+    def load_image(self, image, s3_bucket_name, tag):
         s3_path = os.path.join(os.getenv("S3_INPUT_DIR"), image)
 
         logger.info(f"s3_path: {image}")
