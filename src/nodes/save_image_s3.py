@@ -26,7 +26,7 @@ class NextrySaveImageS3:
             "required": {
                 "images": ("IMAGE", ),
                 "filename_prefix": ("STRING", {"default": "Image"}),
-                "s3_bucket_name": ("STRING", {"default": os.getenv("S3_BUCKET_NAME")}),
+                "s3_bucket_name": ("STRING", {"default": None}),
             }
         }
 
