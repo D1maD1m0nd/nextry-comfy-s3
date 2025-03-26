@@ -47,8 +47,8 @@ class NextrySaveImageS3:
             i = 255. * image.cpu().numpy()
             img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
             file_id = id_generator()
-            file_full = f"preview_{file_id}.png"
-            file_preview = f"stock_{file_id}.webp"
+            file_full = f"preview_{file_id}.webp"
+            file_preview = f"stock_{file_id}.png"
 
             try:
                 image_full_temp_path = self.save_temp_image(img, suffix=".png")
