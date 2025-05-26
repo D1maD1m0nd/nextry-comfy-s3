@@ -47,12 +47,12 @@ class NextrySaveImageS3:
             i = 255. * image.cpu().numpy()
             img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
             file_id = id_generator()
-            file_full = f"preview_{file_id}.webp"
-            file_preview = f"stock_{file_id}.png"
+            file_full = f"stock_{file_id}.png"
+            file_preview = f"preview_{file_id}.webp"
 
             try:
-                image_full_temp_path = self.save_temp_image(img, suffix="PNG")
-                image_preview_temp_path = self.save_temp_image(img, suffix="WEBP")
+                image_full_temp_path = self.save_temp_image(img, suffix=".png")
+                image_preview_temp_path = self.save_temp_image(img, suffix=".webp")
 
                 # Upload the temporary file to S3
                 s3_path_full = os.path.join(full_output_folder, file_full)
@@ -114,8 +114,8 @@ class NextrySaveImageS3:
             elif format_file == "WEBP":
                 save_kwargs = {
                     "format": "WEBP",
-                    "quality": getattr(self, "quality", 95),  # можно задать в init
-                    "lossless": True  # True = без потерь
+                    "quality": getattr(self, "quality", 75),
+                    "lossless": True
                 }
 
             img.save(temp_file_path, **save_kwargs)
