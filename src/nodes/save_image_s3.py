@@ -51,8 +51,8 @@ class NextrySaveImageS3:
             file_preview = f"stock_{file_id}.png"
 
             try:
-                image_full_temp_path = self.save_temp_image(img, suffix=".png")
-                image_preview_temp_path = self.save_temp_image(img, suffix=".webp")
+                image_full_temp_path = self.save_temp_image(img, suffix="PNG")
+                image_preview_temp_path = self.save_temp_image(img, suffix="WEBP")
 
                 # Upload the temporary file to S3
                 s3_path_full = os.path.join(full_output_folder, file_full)
@@ -97,12 +97,30 @@ class NextrySaveImageS3:
     def save_temp_image(self, img: Image, suffix: str = ".png") -> str:
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
             temp_file_path = temp_file.name
+            format_file = suffix.replace(".", "").upper()
 
-            # Save the image to the temporary file
-            img.save(temp_file_path,  compress_level=self.compress_level)
+            # Универсальная конвертация режима (лучше для совместимости)
+            if img.mode not in ("RGB", "RGBA"):
+                img = img.convert("RGBA" if format_file == "PNG" else "RGB")
+
+            # Параметры сохранения
+            save_kwargs = {}
+            if format_file == "PNG":
+                save_kwargs = {
+                    "format": "PNG",
+                    "compress_level": getattr(self, "compress_level", 6),  # от 0 (нет сжатия) до 9
+                    "optimize": True
+                }
+            elif format_file == "WEBP":
+                save_kwargs = {
+                    "format": "WEBP",
+                    "quality": getattr(self, "quality", 95),  # можно задать в init
+                    "lossless": True  # True = без потерь
+                }
+
+            img.save(temp_file_path, **save_kwargs)
 
             return temp_file_path
-
 
 
 
