@@ -32,7 +32,7 @@ class NextrySaveImageS3:
                 "images": ("IMAGE", ),
                 "filename_prefix": ("STRING", {"default": "Image"}),
                 "s3_bucket_name": ("STRING", {"default": None}),
-                #"add_watermark": ("BOOLEAN", {"default": True}),
+                "add_watermark": ("BOOLEAN", {"default": True}),
             }
         }
 
@@ -58,7 +58,7 @@ class NextrySaveImageS3:
         return base
 
 
-    def save_images(self, images, filename_prefix="Nextry", s3_bucket_name=None):
+    def save_images(self, images, filename_prefix="Nextry", s3_bucket_name=None, add_watermark=True):
         logger.info(f"Input params: {images}, {filename_prefix}, {s3_bucket_name}")
         filename_prefix += self.prefix_append
         full_output_folder, filename, counter, subfolder, filename_prefix = S3_INSTANCE.get_save_path(filename_prefix, images[0].shape[1], images[0].shape[0])
@@ -74,8 +74,8 @@ class NextrySaveImageS3:
             file_preview = f"preview_{file_id}.webp"
 
             try:
-                image_full_temp_path = self.save_temp_image(img, suffix=".png")
-                image_preview_temp_path = self.save_temp_image(img, suffix=".webp")
+                image_full_temp_path = self.save_temp_image(img, add_watermark=add_watermark, suffix=".png")
+                image_preview_temp_path = self.save_temp_image(img, add_watermark=add_watermark, suffix=".webp")
 
                 # Upload the temporary file to S3
                 s3_path_full = os.path.join(full_output_folder, file_full)
@@ -117,8 +117,9 @@ class NextrySaveImageS3:
         logger.info({ "ui": { "images": results },  "result": s3_image_paths })
         return { "ui": { "images": results },  "result": s3_image_paths }
 
-    def save_temp_image(self, img: Image, suffix: str = ".png") -> str:
-        img = self.apply_watermark(img)
+    def save_temp_image(self, img: Image, add_watermark=True, suffix: str = ".png") -> str:
+        if add_watermark:
+            img = self.apply_watermark(img)
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
             temp_file_path = temp_file.name
             format_file = suffix.replace(".", "").upper()
