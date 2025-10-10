@@ -30,9 +30,18 @@ ComfyUI nodes to:
 - [x] standalone download/upload file from/to Amazon S3
 - [x] load/save image from/to Amazon S3 buckets
 - [x] save VHS (VideoHelperSuite) video files to Amazon S3 buckets
+- [x] send webhook notifications with image paths to custom endpoints
 - [x] install ComfyS3 from [ComfyUI-Manager](https://github.com/ltdrdata/ComfyUI-Manager)
 - [ ] load checkpoints from Amazon S3 buckets
 - [ ] load video from Amazon S3 buckets
+
+### Webhook Sender Node
+The Webhook Sender node allows you to send POST requests to custom endpoints with image paths. This is useful for:
+- Notifying your backend when image generation is complete
+- Triggering post-processing pipelines
+- Integrating ComfyUI workflows with external systems
+
+See [WEBHOOK_NODE_USAGE.md](./WEBHOOK_NODE_USAGE.md) for detailed usage instructions.
 
 ## Credits
 - [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
