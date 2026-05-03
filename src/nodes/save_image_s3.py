@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image
 from comfy.cli_args import args
 
-from ..client_s3 import get_s3_instance
+from ..client_s3 import get_env_value, get_s3_instance, join_s3_key
 from ..common.generator import id_generator
 from ..logger import logger
 
@@ -18,7 +18,7 @@ class NextrySaveImageS3:
     def __init__(self):
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
         self.temp_dir = os.path.join(base_dir, "temp/")
-        self.s3_output_dir = os.getenv("S3_OUTPUT_DIR")
+        self.s3_output_dir = get_env_value("S3_OUTPUT_DIR", "S3_OUT_PREFIX", "S3_OUT_DIR", "S3_ASSETS_PREFIX")
         self.type = "output"
         self.prefix_append = ""
         self.compress_level = 4
@@ -31,7 +31,7 @@ class NextrySaveImageS3:
             "required": {
                 "images": ("IMAGE", ),
                 "filename_prefix": ("STRING", {"default": "Image"}),
-                "s3_bucket_name": ("STRING", {"default": None}),
+                "s3_bucket_name": ("STRING", {"default": get_env_value("S3_OUT_BUCKET_NAME", "S3_BUCKET_NAME", "S3_BUCKET")}),
                 "add_watermark": ("BOOLEAN", {"default": True}),
             }
         }
@@ -78,11 +78,13 @@ class NextrySaveImageS3:
                 image_preview_temp_path = self.save_temp_image(img, add_watermark=add_watermark, suffix=".webp")
 
                 # Upload the temporary file to S3
-                s3_path_full = os.path.join(full_output_folder, file_full)
-                s3_path_preview = os.path.join(full_output_folder, file_preview)
+                s3_path_full = join_s3_key(full_output_folder, file_full)
+                s3_path_preview = join_s3_key(full_output_folder, file_preview)
 
                 file_path_s3_full = S3_INSTANCE.upload_file(image_full_temp_path, s3_path_full, s3_bucket_name)
                 file_path_s3_preview = S3_INSTANCE.upload_file(image_preview_temp_path, s3_path_preview, s3_bucket_name)
+                file_public_url_full = S3_INSTANCE.build_public_url(file_path_s3_full)
+                file_public_url_preview = S3_INSTANCE.build_public_url(file_path_s3_preview)
 
                 # Add the s3 path to the s3_image_paths list
                 s3_image_paths.extend([file_path_s3_full, file_path_s3_preview])
@@ -91,12 +93,14 @@ class NextrySaveImageS3:
                 results.extend([{
                     "filename": file_full,
                     "s3_path": file_path_s3_full,
+                    "s3_public_url": file_public_url_full,
                     "subfolder": subfolder,
                     "type": self.type
                     },
                     {
                         "filename": file_preview,
                         "s3_path": file_path_s3_preview,
+                        "s3_public_url": file_public_url_preview,
                         "subfolder": subfolder,
                         "type": self.type
                     }])

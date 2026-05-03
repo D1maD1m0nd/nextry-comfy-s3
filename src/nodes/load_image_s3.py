@@ -3,7 +3,7 @@ import torch
 import numpy as np
 from PIL import Image, ImageOps, ImageSequence
 
-from ..client_s3 import get_s3_instance
+from ..client_s3 import get_env_value, get_s3_instance
 from ..logger import logger
 
 S3_INSTANCE = get_s3_instance()
@@ -15,7 +15,7 @@ class NextryLoadImageS3:
 
         return {"required":
                     {"image": ("STRING", {"default": "generation-type/preview/1.png"}),
-                     "s3_bucket_name": ("STRING", {"default": os.getenv("S3_BUCKET_NAME")}),
+                     "s3_bucket_name": ("STRING", {"default": get_env_value("S3_INPUT_BUCKET_NAME", "S3_BUCKET_NAME", "S3_BUCKET")}),
                      "tag": ("STRING", {"default": "generation-type"})},
                 }
 
@@ -25,7 +25,7 @@ class NextryLoadImageS3:
 
     def load_image(self, image, s3_bucket_name, tag):
         # image = "generation-type/preview/1.png" (ключ в бакете)
-        s3_path = os.path.join(os.getenv("S3_INPUT_DIR"), image)
+        s3_path = S3_INSTANCE.resolve_input_key(image)
 
         logger.info(f"s3_key: {image}")
         logger.info(f"s3_path (with input dir): {s3_path}")
@@ -34,7 +34,7 @@ class NextryLoadImageS3:
         local_path = f"input/{image}"
         os.makedirs(os.path.dirname(local_path), exist_ok=True)
         image_path = S3_INSTANCE.download_file(
-            s3_path=image,  # ключ в бакете
+            s3_path=s3_path,
             local_path=local_path,
             bucket_name=s3_bucket_name
         )
