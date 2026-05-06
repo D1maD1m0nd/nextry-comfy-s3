@@ -26,20 +26,54 @@ class NextryLoadImageS3:
     def load_image(self, image, s3_bucket_name, tag):
         # image = "generation-type/preview/1.png" (ключ в бакете)
         s3_path = S3_INSTANCE.resolve_input_key(image)
+        public_url = S3_INSTANCE.build_public_url(s3_path)
 
+        logger.info(
+            "LoadImageS3 input: image=%s tag=%s requested_bucket=%s "
+            "resolved_bucket=%s endpoint_url=%s region=%s input_dir=%s public_url=%s",
+            image,
+            tag,
+            s3_bucket_name,
+            s3_bucket_name or S3_INSTANCE.input_bucket_name or S3_INSTANCE.bucket_name,
+            S3_INSTANCE.endpoint_url,
+            S3_INSTANCE.region,
+            S3_INSTANCE.input_dir,
+            public_url,
+        )
         logger.info(f"s3_key: {image}")
         logger.info(f"s3_path (with input dir): {s3_path}")
 
         # Скачиваем по правильному пути в локальный файл
         local_path = f"input/{image}"
         os.makedirs(os.path.dirname(local_path), exist_ok=True)
+        logger.info(
+            "LoadImageS3 download target: bucket=%s key=%s local_path=%s",
+            s3_bucket_name or S3_INSTANCE.input_bucket_name or S3_INSTANCE.bucket_name,
+            s3_path,
+            local_path,
+        )
         image_path = S3_INSTANCE.download_file(
             s3_path=s3_path,
             local_path=local_path,
             bucket_name=s3_bucket_name
         )
+        logger.info("LoadImageS3 downloaded local image path: %s", image_path)
+        if not image_path:
+            raise FileNotFoundError(
+                "Failed to download from S3: "
+                f"bucket='{s3_bucket_name or S3_INSTANCE.input_bucket_name or S3_INSTANCE.bucket_name}' "
+                f"key='{s3_path}' endpoint='{S3_INSTANCE.endpoint_url}'"
+            )
 
         pil_img = Image.open(image_path)
+        logger.info(
+            "LoadImageS3 opened image: local_path=%s format=%s mode=%s size=%s animated=%s",
+            image_path,
+            pil_img.format,
+            pil_img.mode,
+            pil_img.size,
+            getattr(pil_img, "is_animated", False),
+        )
 
         # Если не анимированная картинка — просто один кадр
         if not getattr(pil_img, "is_animated", False):

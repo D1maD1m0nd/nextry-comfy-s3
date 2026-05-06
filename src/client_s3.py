@@ -5,7 +5,7 @@ from urllib.parse import quote
 import boto3
 from .logger import logger
 from botocore.config import Config
-from botocore.exceptions import NoCredentialsError
+from botocore.exceptions import ClientError, NoCredentialsError
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -52,6 +52,16 @@ def join_s3_key(*parts):
     return posixpath.join(*normalized_parts)
 
 
+def mask_secret(value):
+    if not value:
+        return None
+
+    if len(value) <= 4:
+        return "****"
+
+    return f"****{value[-4:]}"
+
+
 class S3:
     def __init__(
         self,
@@ -76,6 +86,21 @@ class S3:
         self.input_dir = normalize_s3_prefix(input_dir)
         self.output_dir = normalize_s3_prefix(output_dir)
         self.public_url = public_url.rstrip("/") if public_url else None
+        logger.info(
+            "S3 config initialized: region=%s endpoint_url=%s bucket_name=%s "
+            "input_bucket_name=%s output_bucket_name=%s input_dir=%s output_dir=%s "
+            "public_url=%s access_key=%s secret_key_set=%s",
+            self.region,
+            self.endpoint_url,
+            self.bucket_name,
+            self.input_bucket_name,
+            self.output_bucket_name,
+            self.input_dir,
+            self.output_dir,
+            self.public_url,
+            mask_secret(self.access_key),
+            bool(self.secret_key),
+        )
         self.s3_client = self.get_client()
 
         if self.output_dir and not self.does_folder_exist(self.output_dir, self.output_bucket_name):
@@ -87,6 +112,15 @@ class S3:
             logger.error(err)
     
         try:
+            logger.info(
+                "Creating S3 client: region=%s endpoint_url=%s bucket_name=%s "
+                "access_key=%s secret_key_set=%s",
+                self.region,
+                self.endpoint_url,
+                self.bucket_name,
+                mask_secret(self.access_key),
+                bool(self.secret_key),
+            )
             s3 = boto3.resource(
                 service_name='s3',
                 region_name=self.region,
@@ -169,6 +203,64 @@ class S3:
         normalized_s3_path = normalize_s3_key(s3_path)
         encoded_path = "/".join(quote(part) for part in normalized_s3_path.split("/"))
         return f"{self.public_url}/{encoded_path}"
+
+    def log_head_object(self, bucket_name, s3_path):
+        try:
+            logger.info(
+                "Checking S3 object before download: endpoint_url=%s region=%s "
+                "bucket=%s key=%s public_url=%s",
+                self.endpoint_url,
+                self.region,
+                bucket_name,
+                s3_path,
+                self.build_public_url(s3_path),
+            )
+            response = self.s3_client.meta.client.head_object(
+                Bucket=bucket_name,
+                Key=s3_path,
+            )
+            logger.info(
+                "S3 object exists: bucket=%s key=%s content_length=%s "
+                "content_type=%s etag=%s last_modified=%s",
+                bucket_name,
+                s3_path,
+                response.get("ContentLength"),
+                response.get("ContentType"),
+                response.get("ETag"),
+                response.get("LastModified"),
+            )
+            return True
+        except ClientError as e:
+            response = e.response or {}
+            error = response.get("Error", {})
+            metadata = response.get("ResponseMetadata", {})
+            logger.error(
+                "S3 object check failed: endpoint_url=%s region=%s bucket=%s key=%s "
+                "public_url=%s error_code=%s status_code=%s request_id=%s host_id=%s "
+                "message=%s",
+                self.endpoint_url,
+                self.region,
+                bucket_name,
+                s3_path,
+                self.build_public_url(s3_path),
+                error.get("Code"),
+                metadata.get("HTTPStatusCode"),
+                metadata.get("RequestId"),
+                metadata.get("HostId"),
+                error.get("Message"),
+            )
+            return False
+        except Exception as e:
+            logger.error(
+                "S3 object check failed unexpectedly: endpoint_url=%s region=%s "
+                "bucket=%s key=%s error=%s",
+                self.endpoint_url,
+                self.region,
+                bucket_name,
+                s3_path,
+                e,
+            )
+            return False
     
     def download_file(self, s3_path, local_path, bucket_name=None):
         local_dir = os.path.dirname(local_path)
@@ -176,19 +268,76 @@ class S3:
             os.makedirs(local_dir)
 
         normalized_s3_path = self.resolve_input_key(s3_path)
+        target_bucket_name = bucket_name or self.input_bucket_name or self.bucket_name
+        logger.info(
+            "Resolved S3 download request: raw_key=%s normalized_key=%s local_path=%s "
+            "requested_bucket=%s target_bucket=%s endpoint_url=%s region=%s input_dir=%s",
+            s3_path,
+            normalized_s3_path,
+            local_path,
+            bucket_name,
+            target_bucket_name,
+            self.endpoint_url,
+            self.region,
+            self.input_dir,
+        )
 
         try:
-            target_bucket_name = bucket_name or self.input_bucket_name or self.bucket_name
             bucket = self.s3_client.Bucket(target_bucket_name)
-            logger.info(f"Downloading file from S3: {normalized_s3_path} to {local_path} in bucket {target_bucket_name}")
+            self.log_head_object(target_bucket_name, normalized_s3_path)
+            logger.info(
+                "Downloading file from S3: endpoint_url=%s region=%s bucket=%s "
+                "key=%s local_path=%s public_url=%s",
+                self.endpoint_url,
+                self.region,
+                target_bucket_name,
+                normalized_s3_path,
+                local_path,
+                self.build_public_url(normalized_s3_path),
+            )
             bucket.download_file(normalized_s3_path, local_path)
+            logger.info(
+                "Downloaded file from S3: bucket=%s key=%s local_path=%s size_bytes=%s",
+                target_bucket_name,
+                normalized_s3_path,
+                local_path,
+                os.path.getsize(local_path) if os.path.exists(local_path) else None,
+            )
             return local_path
         except NoCredentialsError:
             err = "Credentials not available or not valid."
             logger.error(err)
+        except ClientError as e:
+            response = e.response or {}
+            error = response.get("Error", {})
+            metadata = response.get("ResponseMetadata", {})
+            logger.error(
+                "Failed to download file from S3: endpoint_url=%s region=%s "
+                "bucket=%s key=%s local_path=%s public_url=%s error_code=%s "
+                "status_code=%s request_id=%s host_id=%s message=%s",
+                self.endpoint_url,
+                self.region,
+                target_bucket_name,
+                normalized_s3_path,
+                local_path,
+                self.build_public_url(normalized_s3_path),
+                error.get("Code"),
+                metadata.get("HTTPStatusCode"),
+                metadata.get("RequestId"),
+                metadata.get("HostId"),
+                error.get("Message"),
+            )
         except Exception as e:
-            err = f"Failed to download file from S3: {e}"
-            logger.error(err)
+            logger.error(
+                "Failed to download file from S3: endpoint_url=%s region=%s "
+                "bucket=%s key=%s local_path=%s error=%s",
+                self.endpoint_url,
+                self.region,
+                target_bucket_name,
+                normalized_s3_path,
+                local_path,
+                e,
+            )
 
     def upload_file(self, local_path, s3_path, bucket_name=None):
         normalized_s3_path = normalize_s3_key(s3_path)
@@ -196,7 +345,24 @@ class S3:
         try:
             target_bucket_name = bucket_name or self.output_bucket_name or self.bucket_name
             bucket = self.s3_client.Bucket(target_bucket_name)
+            logger.info(
+                "Uploading file to S3: endpoint_url=%s region=%s bucket=%s key=%s "
+                "local_path=%s size_bytes=%s public_url=%s",
+                self.endpoint_url,
+                self.region,
+                target_bucket_name,
+                normalized_s3_path,
+                local_path,
+                os.path.getsize(local_path) if os.path.exists(local_path) else None,
+                self.build_public_url(normalized_s3_path),
+            )
             bucket.upload_file(local_path, normalized_s3_path)
+            logger.info(
+                "Uploaded file to S3: bucket=%s key=%s public_url=%s",
+                target_bucket_name,
+                normalized_s3_path,
+                self.build_public_url(normalized_s3_path),
+            )
 
             return normalized_s3_path
         except NoCredentialsError:

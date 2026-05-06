@@ -59,9 +59,31 @@ class NextrySaveImageS3:
 
 
     def save_images(self, images, filename_prefix="Nextry", s3_bucket_name=None, add_watermark=True):
-        logger.info(f"Input params: {images}, {filename_prefix}, {s3_bucket_name}")
+        logger.info(
+            "SaveImageS3 input: images_count=%s filename_prefix=%s requested_bucket=%s "
+            "resolved_bucket=%s endpoint_url=%s region=%s output_dir=%s public_url=%s "
+            "add_watermark=%s",
+            len(images) if images is not None else None,
+            filename_prefix,
+            s3_bucket_name,
+            s3_bucket_name or S3_INSTANCE.output_bucket_name or S3_INSTANCE.bucket_name,
+            S3_INSTANCE.endpoint_url,
+            S3_INSTANCE.region,
+            S3_INSTANCE.output_dir,
+            S3_INSTANCE.public_url,
+            add_watermark,
+        )
         filename_prefix += self.prefix_append
         full_output_folder, filename, counter, subfolder, filename_prefix = S3_INSTANCE.get_save_path(filename_prefix, images[0].shape[1], images[0].shape[0])
+        logger.info(
+            "SaveImageS3 resolved save path: full_output_folder=%s filename=%s "
+            "counter=%s subfolder=%s filename_prefix=%s",
+            full_output_folder,
+            filename,
+            counter,
+            subfolder,
+            filename_prefix,
+        )
         results = list()
         s3_image_paths = list()
         
@@ -80,11 +102,28 @@ class NextrySaveImageS3:
                 # Upload the temporary file to S3
                 s3_path_full = join_s3_key(full_output_folder, file_full)
                 s3_path_preview = join_s3_key(full_output_folder, file_preview)
+                logger.info(
+                    "SaveImageS3 upload paths: bucket=%s stock_key=%s preview_key=%s "
+                    "stock_temp=%s preview_temp=%s",
+                    s3_bucket_name or S3_INSTANCE.output_bucket_name or S3_INSTANCE.bucket_name,
+                    s3_path_full,
+                    s3_path_preview,
+                    image_full_temp_path,
+                    image_preview_temp_path,
+                )
 
                 file_path_s3_full = S3_INSTANCE.upload_file(image_full_temp_path, s3_path_full, s3_bucket_name)
                 file_path_s3_preview = S3_INSTANCE.upload_file(image_preview_temp_path, s3_path_preview, s3_bucket_name)
                 file_public_url_full = S3_INSTANCE.build_public_url(file_path_s3_full)
                 file_public_url_preview = S3_INSTANCE.build_public_url(file_path_s3_preview)
+                logger.info(
+                    "SaveImageS3 uploaded files: stock_key=%s stock_public_url=%s "
+                    "preview_key=%s preview_public_url=%s",
+                    file_path_s3_full,
+                    file_public_url_full,
+                    file_path_s3_preview,
+                    file_public_url_preview,
+                )
 
                 # Add the s3 path to the s3_image_paths list
                 s3_image_paths.extend([file_path_s3_full, file_path_s3_preview])
